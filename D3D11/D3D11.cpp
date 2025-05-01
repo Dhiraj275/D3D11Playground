@@ -102,28 +102,53 @@ void renderFrame(
 	const std::chrono::duration<float> frameTime = last - old;
 	float dt = frameTime.count();
 	float c = sin(dt) / 2.0f + 0.5f;
-	float clearColor[4] = { 0.0f,0.f, 0.0f, 1.0f}; // (R,G,B,A) = bluish color
+	float clearColor[4] = { 0.2f,0.2f, 0.2f, 1.0f}; // (R,G,B,A) = bluish color
 	pContext->ClearRenderTargetView(pTarget.Get(), clearColor);
 
 	//lets draw a triangle
 	//vertex buffer
 	
-	struct Vertex {
-		struct {
-			float x, y, z;
-		} pos;
+	struct Vertex
+	{
+		DirectX::XMFLOAT3 pos;
+		DirectX::XMFLOAT3 n;
 	};
-	
-	Vertex vertices[] = {
-		
-		{ -1.0f,-1.0f,-1.0f	 },
-		{ 1.0f,-1.0f,-1.0f	 },
-		{ -1.0f,1.0f,-1.0f	 },
-		{ 1.0f,1.0f,-1.0f	  },
-		{ -1.0f,-1.0f,1.0f	 },
-		{ 1.0f,-1.0f,1.0f	  },
-		{ -1.0f,1.0f,1.0f	 },
-		{ 1.0f,1.0f,1.0f	 },
+	const std::vector<Vertex> vertices =
+	{
+		{ { -0.5f, -0.5f, -0.5f }, {  0.0f,  0.0f, -1.0f } }, // 0
+		{ {  0.5f, -0.5f, -0.5f }, {  0.0f,  0.0f, -1.0f } }, // 1
+		{ { -0.5f,  0.5f, -0.5f }, {  0.0f,  0.0f, -1.0f } }, // 2
+		{ {  0.5f,  0.5f, -0.5f }, {  0.0f,  0.0f, -1.0f } }, // 3
+
+		// Far face (+Z) - Normal: (0, 0, 1)
+		{ { -0.5f, -0.5f,  0.5f }, {  0.0f,  0.0f,  1.0f } }, // 4
+		{ {  0.5f, -0.5f,  0.5f }, {  0.0f,  0.0f,  1.0f } }, // 5
+		{ { -0.5f,  0.5f,  0.5f }, {  0.0f,  0.0f,  1.0f } }, // 6
+		{ {  0.5f,  0.5f,  0.5f }, {  0.0f,  0.0f,  1.0f } }, // 7
+
+		// Left face (-X) - Normal: (-1, 0, 0)
+		{ { -0.5f, -0.5f, -0.5f }, { -1.0f,  0.0f,  0.0f } }, // 8
+		{ { -0.5f,  0.5f, -0.5f }, { -1.0f,  0.0f,  0.0f } }, // 9
+		{ { -0.5f, -0.5f,  0.5f }, { -1.0f,  0.0f,  0.0f } }, // 10
+		{ { -0.5f,  0.5f,  0.5f }, { -1.0f,  0.0f,  0.0f } }, // 11
+
+		// Right face (+X) - Normal: (1, 0, 0)
+		{ {  0.5f, -0.5f, -0.5f }, {  1.0f,  0.0f,  0.0f } }, // 12
+		{ {  0.5f,  0.5f, -0.5f }, {  1.0f,  0.0f,  0.0f } }, // 13
+		{ {  0.5f, -0.5f,  0.5f }, {  1.0f,  0.0f,  0.0f } }, // 14
+		{ {  0.5f,  0.5f,  0.5f }, {  1.0f,  0.0f,  0.0f } }, // 15
+
+		// Bottom face (-Y) - Normal: (0, -1, 0)
+		{ { -0.5f, -0.5f, -0.5f }, {  0.0f, -1.0f,  0.0f } }, // 16
+		{ {  0.5f, -0.5f, -0.5f }, {  0.0f, -1.0f,  0.0f } }, // 17
+		{ { -0.5f, -0.5f,  0.5f }, {  0.0f, -1.0f,  0.0f } }, // 18
+		{ {  0.5f, -0.5f,  0.5f }, {  0.0f, -1.0f,  0.0f } }, // 19
+
+		// Top face (+Y) - Normal: (0, 1, 0)
+		{ { -0.5f,  0.5f, -0.5f }, {  0.0f,  1.0f,  0.0f } }, // 20
+		{ {  0.5f,  0.5f, -0.5f }, {  0.0f,  1.0f,  0.0f } }, // 21
+		{ { -0.5f,  0.5f,  0.5f }, {  0.0f,  1.0f,  0.0f } }, // 22
+		{ {  0.5f,  0.5f,  0.5f }, {  0.0f,  1.0f,  0.0f } }  // 23
 
 	};
 	wrl::ComPtr<ID3D11Buffer> pVertexBuffer;
@@ -135,7 +160,7 @@ void renderFrame(
 	vb.MiscFlags = 0;
 	vb.StructureByteStride = sizeof(Vertex);
 	D3D11_SUBRESOURCE_DATA vsd = {};
-	vsd.pSysMem = vertices;
+	vsd.pSysMem = vertices.data();
 	
 	hr = pDevice->CreateBuffer(&vb, &vsd, &pVertexBuffer);
 	
@@ -220,15 +245,22 @@ void renderFrame(
 		return;
 	}
 
-	const unsigned int indices[] =
+	const std::vector<unsigned short> indices =
 	{
-		0,2,1, 2,3,1,
-		1,3,5, 3,7,5,
-		2,6,3, 3,6,7,
-		4,5,7, 4,7,6,
-		0,4,2, 2,4,6,
-		0,1,4, 1,5,4
+		// Near face (-Z)
+		0, 2, 1,  2, 3, 1,
+		// Far face (+Z)
+		4, 5, 6,  5, 7, 6,
+		// Left face (-X)
+		8, 10, 9,  9, 10, 11,
+		// Right face (+X)
+		12, 13, 14,  13, 15, 14,
+		// Bottom face (-Y)
+		16, 17, 18,  17, 19, 18,
+		// Top face (+Y)
+		20, 22, 21,  21, 22, 23
 	};
+
 	wrl::ComPtr<ID3D11Buffer> pIndexBuffer;
 	D3D11_BUFFER_DESC ib = {};
 	ib.ByteWidth = sizeof(indices);
@@ -236,9 +268,9 @@ void renderFrame(
 	ib.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	ib.CPUAccessFlags = 0;
 	ib.MiscFlags = 0;
-	ib.StructureByteStride = sizeof(unsigned int);
+	ib.StructureByteStride = sizeof(unsigned short);
 	D3D11_SUBRESOURCE_DATA isd = {};
-	isd.pSysMem = indices;
+	isd.pSysMem = indices.data();
 
 	hr = pDevice->CreateBuffer(&ib, &isd, &pIndexBuffer);
 
@@ -285,7 +317,8 @@ void renderFrame(
 	//Input Layout
 	wrl::ComPtr<ID3D11InputLayout> pInputLayout;
 	const D3D11_INPUT_ELEMENT_DESC ied[] = {
-		{"Position", 0u, DXGI_FORMAT_R32G32B32_FLOAT,0u, 0u, D3D11_INPUT_PER_VERTEX_DATA, 0u}
+		{"Position", 0u, DXGI_FORMAT_R32G32B32_FLOAT,0u, 0u, D3D11_INPUT_PER_VERTEX_DATA, 0u},
+		{ "Normal", 0u, DXGI_FORMAT_R32G32B32_FLOAT,0u, 12u, D3D11_INPUT_PER_VERTEX_DATA, 0u }
 	};
 
 

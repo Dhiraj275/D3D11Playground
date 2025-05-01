@@ -3,8 +3,13 @@ cbuffer cb
 {
     float4 face_colors[4];
 };
+float3 ambient = { 0.1f, 0.1f, 0.1f };
+float3 materialColor = { 0.01f, 0.0f, 0.0f };
 
-float4 main(uint tid: SV_PrimitiveID) : SV_Target
+float4 main() : SV_Target
 {
-    return float4(face_colors[tid/2]);
+    
+    float3 lighting = ambient;
+    float3 color = materialColor * ambient;
+    return float4(color, 1.0f);
 }
