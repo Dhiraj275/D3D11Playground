@@ -23,9 +23,9 @@ namespace wrl = Microsoft::WRL;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-void initializeD3D11(HWND hwnd, 
-	wrl::ComPtr<IDXGISwapChain>& pSwap, 
-	wrl::ComPtr<ID3D11Device>& pDevice, 
+void initializeD3D11(HWND hwnd,
+	wrl::ComPtr<IDXGISwapChain>& pSwap,
+	wrl::ComPtr<ID3D11Device>& pDevice,
 	wrl::ComPtr<ID3D11DeviceContext>& pContext,
 	wrl::ComPtr<ID3D11RenderTargetView>& pTarget)
 {
@@ -102,18 +102,18 @@ void renderFrame(
 	const std::chrono::duration<float> frameTime = last - old;
 	float dt = frameTime.count();
 	float c = sin(dt) / 2.0f + 0.5f;
-	float clearColor[4] = { 0.2f,0.2f, 0.2f, 1.0f}; // (R,G,B,A) = bluish color
+	float clearColor[4] = { 0.0f,0.f, 0.0f, 1.0f }; // (R,G,B,A) = bluish color
 	pContext->ClearRenderTargetView(pTarget.Get(), clearColor);
 
 	//lets draw a triangle
 	//vertex buffer
-	
-	struct Vertex
-	{
+
+	struct Vertex {
 		DirectX::XMFLOAT3 pos;
 		DirectX::XMFLOAT3 n;
 	};
-	const std::vector<Vertex> vertices =
+
+	std::vector<Vertex> vertices =
 	{
 		{ { -0.5f, -0.5f, -0.5f }, {  0.0f,  0.0f, -1.0f } }, // 0
 		{ {  0.5f, -0.5f, -0.5f }, {  0.0f,  0.0f, -1.0f } }, // 1
@@ -153,7 +153,7 @@ void renderFrame(
 	};
 	wrl::ComPtr<ID3D11Buffer> pVertexBuffer;
 	D3D11_BUFFER_DESC vb = {};
-	vb.ByteWidth = sizeof(vertices);
+	vb.ByteWidth = (UINT)sizeof(Vertex)*vertices.size();
 	vb.Usage = D3D11_USAGE_DEFAULT;
 	vb.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vb.CPUAccessFlags = 0;
@@ -161,13 +161,13 @@ void renderFrame(
 	vb.StructureByteStride = sizeof(Vertex);
 	D3D11_SUBRESOURCE_DATA vsd = {};
 	vsd.pSysMem = vertices.data();
-	
+
 	hr = pDevice->CreateBuffer(&vb, &vsd, &pVertexBuffer);
-	
+
 	//bind
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0u;
-	pContext->IASetVertexBuffers(0u, 1u, pVertexBuffer.GetAddressOf(),&stride, &offset);
+	pContext->IASetVertexBuffers(0u, 1u, pVertexBuffer.GetAddressOf(), &stride, &offset);
 
 
 	//transform c buf
@@ -178,10 +178,10 @@ void renderFrame(
 	ConstantBuffer cb = {
 		{
 				DirectX::XMMatrixTranspose(
-				DirectX::XMMatrixRotationZ(angle)*
-				DirectX::XMMatrixRotationX(angle)*
-				DirectX::XMMatrixTranslation(0.0f,0.0f,10.0f)*
-				DirectX::XMMatrixPerspectiveLH(1.0f,9.0f / 16.0f,0.5f,100.0f)
+					DirectX::XMMatrixRotationZ(angle) *
+					DirectX::XMMatrixRotationX(angle) *
+					DirectX::XMMatrixTranslation(0.0f,0.0f,2.0f) *
+					DirectX::XMMatrixPerspectiveLH(1.0f,9.0f / 16.0f,0.5f,100.0f)
 			)
 		}
 	};
@@ -196,10 +196,10 @@ void renderFrame(
 	D3D11_SUBRESOURCE_DATA csd = {};
 	csd.pSysMem = &cb;
 
-	hr = pDevice->CreateBuffer(&cbd,&csd,&pConstantBuffer);
+	hr = pDevice->CreateBuffer(&cbd, &csd, &pConstantBuffer);
 
 	//bind
-	
+
 	pContext->VSSetConstantBuffers(0u, 1u, pConstantBuffer.GetAddressOf());
 
 
@@ -245,9 +245,8 @@ void renderFrame(
 		return;
 	}
 
-	const std::vector<unsigned short> indices =
+	std::vector<unsigned int> indices =
 	{
-		// Near face (-Z)
 		0, 2, 1,  2, 3, 1,
 		// Far face (+Z)
 		4, 5, 6,  5, 7, 6,
@@ -260,15 +259,14 @@ void renderFrame(
 		// Top face (+Y)
 		20, 22, 21,  21, 22, 23
 	};
-
 	wrl::ComPtr<ID3D11Buffer> pIndexBuffer;
 	D3D11_BUFFER_DESC ib = {};
-	ib.ByteWidth = sizeof(indices);
+	ib.ByteWidth = (UINT)sizeof(unsigned int)*indices.size();
 	ib.Usage = D3D11_USAGE_DEFAULT;
 	ib.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	ib.CPUAccessFlags = 0;
 	ib.MiscFlags = 0;
-	ib.StructureByteStride = sizeof(unsigned short);
+	ib.StructureByteStride = sizeof(unsigned int);
 	D3D11_SUBRESOURCE_DATA isd = {};
 	isd.pSysMem = indices.data();
 
@@ -289,17 +287,17 @@ void renderFrame(
 	wrl::ComPtr<ID3DBlob> pBlob;
 	hr = D3DReadFileToBlob(L"PixelShader.cso", &pBlob);
 	if (FAILED(hr)) {
-		MessageBoxA(NULL,"Failed Reading Pixel Shader", "", MB_OK);
+		MessageBoxA(NULL, "Failed Reading Pixel Shader", "", MB_OK);
 	}
-	
+
 	hr = pDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &pPixelShader);
 	if (FAILED(hr)) {
 		MessageBoxA(NULL, "Failed Creating Pixel Shader", "", MB_OK);
 	}
 	//bind pixel shader
 	pContext->PSSetShader(pPixelShader.Get(), nullptr, 0u);
-	
-	
+
+
 	// create vertex shader
 	wrl::ComPtr<ID3D11VertexShader> pVertexShader;
 	hr = D3DReadFileToBlob(L"VertexShader.cso", &pBlob);
@@ -318,16 +316,17 @@ void renderFrame(
 	wrl::ComPtr<ID3D11InputLayout> pInputLayout;
 	const D3D11_INPUT_ELEMENT_DESC ied[] = {
 		{"Position", 0u, DXGI_FORMAT_R32G32B32_FLOAT,0u, 0u, D3D11_INPUT_PER_VERTEX_DATA, 0u},
-		{ "Normal", 0u, DXGI_FORMAT_R32G32B32_FLOAT,0u, 12u, D3D11_INPUT_PER_VERTEX_DATA, 0u }
+		{"Normal", 0u, DXGI_FORMAT_R32G32B32_FLOAT,0u, 0u, D3D11_INPUT_PER_VERTEX_DATA, 0u},
+
 	};
 
 
-	hr = pDevice->CreateInputLayout(	
+	hr = pDevice->CreateInputLayout(
 		ied, (UINT)std::size(ied),
-		pBlob->GetBufferPointer(), 
+		pBlob->GetBufferPointer(),
 		pBlob->GetBufferSize(),
 		&pInputLayout
-		);
+	);
 	if (FAILED(hr)) {
 		MessageBoxA(NULL, "Failed Creating Input Layout", "", MB_OK);
 	}
@@ -343,7 +342,7 @@ void renderFrame(
 	pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//pContext->Draw((UINT)std::size(vertices), 0u);
-	pContext->DrawIndexed((UINT)std::size(indices),0u, 0u);
+	pContext->DrawIndexed((UINT)indices.size(), 0u, 0u);
 
 	pSwap->Present(1, 0);
 }
@@ -359,14 +358,14 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND hwnd = CreateWindowEx(0u, WindowClassName, L"Agni Reload", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, wWidth, wHeight, NULL, NULL, hInstance, NULL);
 	ShowWindow(hwnd, nCmdShow);
 	MSG msg;
-	
+
 	wrl::ComPtr<IDXGISwapChain> pSwap;
 	wrl::ComPtr<ID3D11Device> pDevice;
 	wrl::ComPtr<ID3D11DeviceContext> pContext;
 	wrl::ComPtr<ID3D11RenderTargetView> pTarget;
-	
-	initializeD3D11(hwnd, pSwap,pDevice,pContext,pTarget);
-	
+
+	initializeD3D11(hwnd, pSwap, pDevice, pContext, pTarget);
+
 
 	while (true) {
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -394,7 +393,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
-	return 0;
+		return 0;
 	}
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
